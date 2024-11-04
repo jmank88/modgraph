@@ -60,14 +60,17 @@ func main() {
 		}
 	}
 
-	keys := slices.Collect(maps.Keys(deps))
+	keys := slices.Collect(maps.Keys(seen))
 	slices.Sort(keys)
-	slices.Reverse(keys)
 	for _, m := range keys {
 		ds := deps[m]
-		slices.Sort(ds)
-		for _, d := range ds {
-			fmt.Printf("\t%s --> %s\n", m, d)
+		if len(ds) == 0 {
+			fmt.Printf("\t%s\n", m)
+		} else {
+			slices.Sort(ds)
+			for _, d := range ds {
+				fmt.Printf("\t%s --> %s\n", m, d)
+			}
 		}
 		repo, _, _ := strings.Cut(m, "/")
 		fmt.Printf("\tclick %s href \"https://%s%s\"\n", m, *prefix, repo)
@@ -75,7 +78,6 @@ func main() {
 
 	keys = slices.Collect(maps.Keys(repos))
 	slices.Sort(keys)
-	slices.Reverse(keys)
 	subgraphs := []string{}
 	for _, repo := range keys {
 		mods := repos[repo]
