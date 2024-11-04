@@ -19,10 +19,14 @@ var (
 )
 
 func main() {
+	os.Exit(Main())
+}
+
+func Main() int {
 	flag.Parse()
 	if *prefix == "" {
 		slog.Error("Must provide -prefix")
-		os.Exit(1)
+		return 1
 	}
 
 	repos := make(map[string][]string)
@@ -100,6 +104,7 @@ func main() {
 
 	fmt.Println("\n\tclassDef outline stroke-dasharray:6,fill:none;")
 	fmt.Printf("\tclass %s outline\n", strings.Join(subgraphs, ","))
+	return 0
 }
 
 // scanDeps returns parsed modules from go mod graph output
