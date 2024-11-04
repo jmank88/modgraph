@@ -1,0 +1,28 @@
+stdin go-mod-graph.txt
+exec modgraph -prefix github.com/example/
+cmp stdout go.md
+
+-- go-mod-graph.txt --
+github.com/example/foo github.com/example/bar
+github.com/example/bar github.com/example/baz
+github.com/example/foo github.com/example/baz/v2
+
+-- go.md --
+	bar --> baz
+	click bar href "https://github.com/example/bar"
+	baz
+	click baz href "https://github.com/example/baz"
+	baz/v2
+	click baz/v2 href "https://github.com/example/baz"
+	foo --> bar
+	foo --> baz/v2
+	click foo href "https://github.com/example/foo"
+
+	subgraph baz-repo[baz]
+		 baz
+		 baz/v2
+	end
+	click baz-repo href "https://github.com/example/baz"
+
+	classDef outline stroke-dasharray:6,fill:none;
+	class baz-repo outline
