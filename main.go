@@ -29,21 +29,7 @@ func Main() int {
 		return 1
 	}
 
-	repos := make(map[string][]string)
-	seen := make(map[string]struct{})
-	deps := make(map[string][]string)
-	sawMod := func(path string) {
-		if _, ok := seen[path]; !ok {
-			seen[path] = struct{}{}
-
-			repo, _, _ := strings.Cut(path, "/")
-			if _, ok = repos[repo]; !ok {
-				repos[repo] = []string{path}
-			} else {
-				repos[repo] = append(repos[repo], path)
-			}
-		}
-	}
+	deps := newState()
 	for mod, dep := range scanDeps(os.Stdin) {
 		if !strings.HasPrefix(mod, *prefix) || !strings.HasPrefix(dep, *prefix) {
 			if *verbose {
@@ -53,21 +39,12 @@ func Main() int {
 		}
 
 		modPath, depPath := strings.TrimPrefix(mod, *prefix), strings.TrimPrefix(dep, *prefix)
-		sawMod(modPath)
-		sawMod(depPath)
-		if d, ok := deps[modPath]; ok {
-			if !slices.Contains(d, depPath) {
-				deps[modPath] = append(d, depPath)
-			}
-		} else {
-			deps[modPath] = []string{depPath}
-		}
+		deps.add(modPath, depPath)
 	}
 
-	keys := slices.Collect(maps.Keys(seen))
-	slices.Sort(keys)
-	for _, m := range keys {
-		ds := deps[m]
+	deps.transitiveReduction()
+
+	for m, ds := range deps.depsSorted() {
 		if len(ds) == 0 {
 			fmt.Printf("\t%s\n", m)
 		} else {
@@ -80,11 +57,8 @@ func Main() int {
 		fmt.Printf("\tclick %s href \"https://%s%s\"\n", m, *prefix, repo)
 	}
 
-	keys = slices.Collect(maps.Keys(repos))
-	slices.Sort(keys)
-	subgraphs := []string{}
-	for _, repo := range keys {
-		mods := repos[repo]
+	var subgraphs []string
+	for repo, mods := range deps.reposSorted() {
 		if len(mods) <= 1 {
 			if *verbose {
 				slog.Info("Skipping repo with single module", "repo", repo, "mods", mods)
@@ -116,6 +90,9 @@ func scanDeps(r io.Reader) iter.Seq2[string, string] {
 		for scanner.Scan() {
 			total++
 			line := strings.TrimSpace(scanner.Text())
+			if line == "" {
+				continue
+			}
 			parts := strings.Split(line, " ")
 			if len(parts) != 2 {
 				invalid++
@@ -135,6 +112,112 @@ func scanDeps(r io.Reader) iter.Seq2[string, string] {
 		if err := scanner.Err(); err != nil {
 			slog.Error("Failed to read input", "err", err)
 			os.Exit(1)
+		}
+	}
+}
+
+type state struct {
+	deps  map[string][]string // [path][]path
+	seen  map[string]struct{} // [path]
+	repos map[string][]string // [repo][]path
+}
+
+func newState() *state {
+	return &state{
+		deps:  make(map[string][]string),
+		seen:  make(map[string]struct{}),
+		repos: make(map[string][]string),
+	}
+}
+
+func (s *state) add(mod, dep string) {
+	s.sawMod(mod)
+	s.sawMod(dep)
+	if d, ok := s.deps[mod]; ok {
+		if !slices.Contains(d, dep) {
+			s.deps[mod] = append(d, dep)
+		}
+	} else {
+		s.deps[mod] = []string{dep}
+	}
+}
+
+func (s *state) sawMod(path string) {
+	if _, ok := s.seen[path]; !ok {
+		s.seen[path] = struct{}{}
+
+		repo, _, _ := strings.Cut(path, "/")
+		if _, ok = s.repos[repo]; !ok {
+			s.repos[repo] = []string{path}
+		} else {
+			s.repos[repo] = append(s.repos[repo], path)
+		}
+	}
+}
+
+func (s *state) transitiveReduction() {
+	noPath := make(map[string]map[string]struct{}) // [path][path]
+	for m, deps := range s.deps {
+		s.deps[m] = slices.DeleteFunc(deps, func(d string) bool {
+			// BFS for indirect paths to d, tracking nodes we touch along the way
+			var touched []string
+			children := slices.DeleteFunc(slices.Clone(deps), func(s string) bool { return s == d }) // exclude direct
+			for len(children) > 0 {
+				touched = append(touched, children...)
+				var next []string
+				for _, child := range children {
+					if child == d {
+						if *verbose {
+							slog.Info("Excluding transitive edge", "mod", m, "dep", d)
+						}
+						return true // found an indirect path, so remove this edge
+					}
+					if none, ok := noPath[child]; ok {
+						if _, ok2 := none[d]; ok2 {
+							if *verbose {
+								slog.Info("Skipping known disconnected nodes", "mod", child, "dep", d)
+							}
+							continue // known not to lead to d
+						}
+					}
+					next = append(next, s.deps[child]...)
+				}
+				children = next
+			}
+			// none of the touched nodes have direct paths
+			for _, t := range touched {
+				none, ok := noPath[t]
+				if !ok {
+					none = make(map[string]struct{})
+					noPath[t] = none
+				}
+				none[d] = struct{}{}
+			}
+			return false
+		})
+	}
+}
+
+func (s *state) depsSorted() iter.Seq2[string, []string] {
+	return func(yield func(string, []string) bool) {
+		keys := slices.Collect(maps.Keys(s.seen))
+		slices.Sort(keys)
+		for _, m := range keys {
+			if !yield(m, s.deps[m]) {
+				return
+			}
+		}
+	}
+}
+
+func (s *state) reposSorted() iter.Seq2[string, []string] {
+	return func(yield func(string, []string) bool) {
+		keys := slices.Collect(maps.Keys(s.repos))
+		slices.Sort(keys)
+		for _, repo := range keys {
+			if !yield(repo, s.repos[repo]) {
+				return
+			}
 		}
 	}
 }

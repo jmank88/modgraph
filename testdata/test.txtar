@@ -5,6 +5,7 @@ cmp stdout go.md
 -- go-mod-graph.txt --
 github.com/example/foo github.com/example/bar
 github.com/example/bar github.com/example/baz
+github.com/example/foo github.com/example/baz
 github.com/example/foo github.com/example/baz/v2
 
 -- go.md --
