@@ -1,0 +1,46 @@
+stdin go-mod-graph.txt
+exec modgraph -prefix github.com/smartcontractkit/
+cmp stdout go.md
+
+-- go-mod-graph.txt --
+        github.com/smartcontractkit/chainlink-testing-framework/framework/examples github.com/smartcontractkit/chainlink-testing-framework/wasp@v1.50.2
+        github.com/smartcontractkit/chainlink-testing-framework/wasp@v1.50.2 github.com/smartcontractkit/chainlink-testing-framework/lib@v1.50.18
+        github.com/smartcontractkit/chainlink-testing-framework/wasp@v1.50.2 github.com/smartcontractkit/chainlink-testing-framework/lib/grafana@v1.50.0
+        github.com/smartcontractkit/chainlink-testing-framework/lib@v1.50.18 github.com/smartcontractkit/chainlink-testing-framework/wasp@v1.50.1
+        github.com/smartcontractkit/chainlink-testing-framework/examples_wasp github.com/smartcontractkit/chainlink-testing-framework/seth@v1.2.0
+        github.com/smartcontractkit/chainlink-testing-framework/examples_wasp github.com/smartcontractkit/chainlink-testing-framework/wasp@v0.4.9
+        github.com/smartcontractkit/chainlink-testing-framework/lib@v1.99.4-0.20240903123107-cd7909d3e9fb github.com/smartcontractkit/chainlink-testing-framework/wasp@v0.4.9
+        github.com/smartcontractkit/chainlink-testing-framework/lib@v1.99.4-0.20240903123107-cd7909d3e9fb github.com/smartcontractkit/chainlink-testing-framework/wasp@v0.4.9
+        github.com/smartcontractkit/chainlink-testing-framework/wasp github.com/smartcontractkit/chainlink-testing-framework/lib@v1.50.18
+        github.com/smartcontractkit/chainlink-testing-framework/wasp github.com/smartcontractkit/chainlink-testing-framework/lib/grafana@v1.50.0
+        github.com/smartcontractkit/chainlink-testing-framework/wasp@v1.50.1 github.com/smartcontractkit/chainlink-testing-framework/lib@v1.50.18
+        github.com/smartcontractkit/chainlink-testing-framework/wasp@v1.50.1 github.com/smartcontractkit/chainlink-testing-framework/lib/grafana@v1.50.0
+
+-- go.md --
+	chainlink-testing-framework/examples_wasp --> chainlink-testing-framework/seth
+	chainlink-testing-framework/examples_wasp --> chainlink-testing-framework/wasp
+	click chainlink-testing-framework/examples_wasp href "https://github.com/smartcontractkit/chainlink-testing-framework"
+	chainlink-testing-framework/framework/examples --> chainlink-testing-framework/wasp
+	click chainlink-testing-framework/framework/examples href "https://github.com/smartcontractkit/chainlink-testing-framework"
+	chainlink-testing-framework/lib --> chainlink-testing-framework/wasp
+	click chainlink-testing-framework/lib href "https://github.com/smartcontractkit/chainlink-testing-framework"
+	chainlink-testing-framework/lib/grafana
+	click chainlink-testing-framework/lib/grafana href "https://github.com/smartcontractkit/chainlink-testing-framework"
+	chainlink-testing-framework/seth
+	click chainlink-testing-framework/seth href "https://github.com/smartcontractkit/chainlink-testing-framework"
+	chainlink-testing-framework/wasp --> chainlink-testing-framework/lib
+	chainlink-testing-framework/wasp --> chainlink-testing-framework/lib/grafana
+	click chainlink-testing-framework/wasp href "https://github.com/smartcontractkit/chainlink-testing-framework"
+
+	subgraph chainlink-testing-framework-repo[chainlink-testing-framework]
+		 chainlink-testing-framework/examples_wasp
+		 chainlink-testing-framework/framework/examples
+		 chainlink-testing-framework/lib
+		 chainlink-testing-framework/lib/grafana
+		 chainlink-testing-framework/seth
+		 chainlink-testing-framework/wasp
+	end
+	click chainlink-testing-framework-repo href "https://github.com/smartcontractkit/chainlink-testing-framework"
+
+	classDef outline stroke-dasharray:6,fill:none;
+	class chainlink-testing-framework-repo outline

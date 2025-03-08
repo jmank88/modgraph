@@ -43,7 +43,9 @@ func Main() int {
 	}
 
 	deps.transitiveReduction()
-
+	if *verbose {
+		slog.Info("Transitive reduction complete")
+	}
 	for m, ds := range deps.depsSorted() {
 		if len(ds) == 0 {
 			fmt.Printf("\t%s\n", m)
@@ -160,12 +162,18 @@ func (s *state) transitiveReduction() {
 	for m, deps := range s.deps {
 		s.deps[m] = slices.DeleteFunc(deps, func(d string) bool {
 			// BFS for indirect paths to d, tracking nodes we touch along the way
-			var touched []string
+			touched := map[string]struct{}{m: {}}
 			children := slices.DeleteFunc(slices.Clone(deps), func(s string) bool { return s == d }) // exclude direct
 			for len(children) > 0 {
-				touched = append(touched, children...)
 				var next []string
 				for _, child := range children {
+					if _, ok := touched[child]; ok {
+						if *verbose {
+							slog.Info("Breaking cycle", "mod", m)
+						}
+						continue // ignore
+					}
+					touched[child] = struct{}{}
 					if child == d {
 						if *verbose {
 							slog.Info("Excluding transitive edge", "mod", m, "dep", d)
@@ -185,7 +193,7 @@ func (s *state) transitiveReduction() {
 				children = next
 			}
 			// none of the touched nodes have direct paths
-			for _, t := range touched {
+			for t := range touched {
 				none, ok := noPath[t]
 				if !ok {
 					none = make(map[string]struct{})
