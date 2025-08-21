@@ -76,8 +76,10 @@ func Main() int {
 		fmt.Printf("\tclick %[1]s-repo href \"https://%s%[1]s\"\n", repo, *prefix)
 	}
 
-	fmt.Println("\n\tclassDef outline stroke-dasharray:6,fill:none;")
-	fmt.Printf("\tclass %s outline\n", strings.Join(subgraphs, ","))
+	if len(subgraphs) > 0 {
+		fmt.Println("\n\tclassDef outline stroke-dasharray:6,fill:none;")
+		fmt.Printf("\tclass %s outline\n", strings.Join(subgraphs, ","))
+	}
 	return 0
 }
 
