@@ -159,7 +159,11 @@ func (s *state) sawMod(path string) {
 
 func (s *state) transitiveReduction() {
 	noPath := make(map[string]map[string]struct{}) // [path][path]
-	for m, deps := range s.deps {
+
+	// Iterate modules in a stable order
+	mods := slices.Sorted(maps.Keys(s.deps))
+	for _, m := range mods {
+		deps := s.deps[m]
 		s.deps[m] = slices.DeleteFunc(deps, func(d string) bool {
 			// BFS for indirect paths to d, tracking nodes we touch along the way
 			var touched []string
