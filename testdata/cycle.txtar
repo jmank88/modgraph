@@ -1,0 +1,20 @@
+stdin go-mod-graph.txt
+exec modgraph -prefix github.com/example/
+cmp stdout go.md
+
+-- go-mod-graph.txt --
+github.com/example/a github.com/example/b
+github.com/example/a github.com/example/d
+github.com/example/b github.com/example/c
+github.com/example/c github.com/example/b
+
+-- go.md --
+	a --> b
+	a --> d
+	click a href "https://github.com/example/a"
+	b --> c
+	click b href "https://github.com/example/b"
+	c --> b
+	click c href "https://github.com/example/c"
+	d
+	click d href "https://github.com/example/d"

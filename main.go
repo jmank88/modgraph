@@ -14,8 +14,10 @@ import (
 )
 
 var (
-	prefix  = flag.String("prefix", "", "prefix to filter")
-	verbose = flag.Bool("v", false, "verbose mode")
+	prefix       = flag.String("prefix", "", "prefix to filter")
+	verbose      = flag.Bool("v", false, "verbose mode")
+	detectCycles = flag.Bool("detect-cycles", false,
+		"fail if the module-name graph (versions collapsed) contains cycles")
 )
 
 func main() {
@@ -40,6 +42,16 @@ func Main() int {
 
 		modPath, depPath := strings.TrimPrefix(mod, *prefix), strings.TrimPrefix(dep, *prefix)
 		deps.add(modPath, depPath)
+	}
+
+	if *detectCycles {
+		cycles := deps.findCycles()
+		for _, c := range cycles {
+			slog.Error("Cycle detected", "path", strings.Join(c, " -> "))
+		}
+		if len(cycles) > 0 {
+			return 2
+		}
 	}
 
 	deps.transitiveReduction()
@@ -157,6 +169,65 @@ func (s *state) sawMod(path string) {
 	}
 }
 
+// findCycles returns cycles between deps
+// deploy@v2.0.0 -> common@v2.0.0
+// common@v2.0.0 -> deploy@v0.5.0
+// deploy@v0.5.0 -> common@v1.0.0
+//
+// back-edge DFS algorithm
+// edge (u, v), v is visited and an ancestor of u = we have a cycle
+//
+// Caveat: reports one cycle per back-edge, not every simple cycle. A cycle is
+// hidden when its target has already been visited and popped via another path.
+// Example: edges {a->b, a->c, b->c, c->a} — DFS at a descends a->b->c, sees
+// c->a as a back-edge and reports [a,b,c]. The direct a->c->a cycle is missed
+// because c is no longer on the stack when the loop at a reaches it. Fixing
+// the reported cycle and re-running surfaces the hidden one, eventually, we'll find
+// all the cycles.
+// // Alternatively, Tarjan algorithm can be used to detect all the cycles in one run
+// but it's slightly more complex to understand.
+func (s *state) findCycles() [][]string {
+	var cycles [][]string
+	visited := make(map[string]struct{})
+	// current stack of paths, ex.: a@v2.0 -> b@v1.0 -> c@v0.5
+	stack := make([]string, 0)
+	// positions on stack of paths, ex: {a:0, b:1, c:2}
+	onStack := make(map[string]int)
+
+	var dfs func(string)
+	dfs = func(n string) {
+		visited[n] = struct{}{}
+		stack = append(stack, n)
+		onStack[n] = len(stack) - 1
+
+		children := slices.Clone(s.deps[n])
+		slices.Sort(children)
+		for _, d := range children {
+			if _, ok := visited[d]; !ok {
+				dfs(d)
+			} else if idx, ok := onStack[d]; ok {
+				// cycle detected, clone [first_ancenstor:current] which has back-edge
+				cycles = append(cycles, slices.Clone(stack[idx:]))
+			}
+		}
+
+		delete(onStack, n)
+		stack = stack[:len(stack)-1]
+	}
+
+	deps := slices.Sorted(maps.Keys(s.deps))
+	for _, dep := range deps {
+		if _, ok := visited[dep]; !ok {
+			dfs(dep)
+		}
+	}
+	// append the ancestor for printing, ex.: a->b->c->a
+	for ci := range cycles {
+		cycles[ci] = append(cycles[ci], cycles[ci][0])
+	}
+	return cycles
+}
+
 func (s *state) transitiveReduction() {
 	noPath := make(map[string]map[string]struct{}) // [path][path]
 
@@ -167,11 +238,18 @@ func (s *state) transitiveReduction() {
 		s.deps[m] = slices.DeleteFunc(deps, func(d string) bool {
 			// BFS for indirect paths to d, tracking nodes we touch along the way
 			var touched []string
+			// visited guards against cycles in the graph
+			visited := make(map[string]struct{})
 			children := slices.DeleteFunc(slices.Clone(deps), func(s string) bool { return s == d }) // exclude direct
 			for len(children) > 0 {
-				touched = append(touched, children...)
 				var next []string
 				for _, child := range children {
+					if _, ok := visited[child]; ok {
+						continue
+					}
+					visited[child] = struct{}{}
+					touched = append(touched, child)
+
 					if child == d {
 						if *verbose {
 							slog.Info("Excluding transitive edge", "mod", m, "dep", d)
