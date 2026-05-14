@@ -238,8 +238,8 @@ func (s *state) transitiveReduction() {
 		s.deps[m] = slices.DeleteFunc(deps, func(d string) bool {
 			// BFS for indirect paths to d, tracking nodes we touch along the way
 			var touched []string
-			// visited guards against cycles in the graph
-			visited := make(map[string]struct{})
+			// visited prevents BFS from looping on cycles; pre-marking m blocks paths like m→…→m→d from counting as indirect
+			visited := map[string]struct{}{m: {}}
 			children := slices.DeleteFunc(slices.Clone(deps), func(s string) bool { return s == d }) // exclude direct
 			for len(children) > 0 {
 				var next []string
