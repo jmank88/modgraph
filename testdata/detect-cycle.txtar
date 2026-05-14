@@ -1,0 +1,8 @@
+stdin go-mod-graph.txt
+! exec modgraph -detect-cycles -prefix github.com/example/
+stderr 'Cycle detected.*a -> b -> c -> a'
+
+-- go-mod-graph.txt --
+github.com/example/a github.com/example/b
+github.com/example/b github.com/example/c
+github.com/example/c github.com/example/a

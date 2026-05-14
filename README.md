@@ -5,16 +5,23 @@
 ```shell
 $ modgraph --help
 Usage of modgraph:
+  -v	verbose mode
   -prefix string
-        prefix to filter
-  -v    verbose mode
+   	prefix to filter
+  -detect-cycles
+   	fail if the module-name graph (versions collapsed) contains cycles
 ```
 
 ```shell
 go mod graph | modgraph -prefix github.com/smartcontractkit/
 ```
 
+```shell
+go mod graph | modgraph -prefix github.com/smartcontractkit/ -detect-cycles # fail if there any import cycles between modules
+```
+
 ## Example
+
 ```mermaid
 flowchart
 	bar --> baz

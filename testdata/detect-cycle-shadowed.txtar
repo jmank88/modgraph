@@ -1,0 +1,14 @@
+# {a->b, a->c, b->c, c->a} the only cycle reported is a->b->c->a. The
+# direct a->c->a cycle is hidden because c is no longer on the stack
+# when the loop at a reaches it. Re-running after the longer cycle is
+# fixed surfaces the shadowed one.
+stdin go-mod-graph.txt
+! exec modgraph -detect-cycles -prefix github.com/example/
+stderr 'Cycle detected.*a -> b -> c -> a'
+! stderr 'Cycle detected.*a -> c -> a'
+
+-- go-mod-graph.txt --
+github.com/example/a github.com/example/b
+github.com/example/a github.com/example/c
+github.com/example/b github.com/example/c
+github.com/example/c github.com/example/a
